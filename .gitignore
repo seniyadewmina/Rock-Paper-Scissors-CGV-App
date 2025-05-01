@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+ENV/
+env/
+
+# IDE settings
+.idea/
+.vscode/
+
+# Git metadata
+.git/
+
+# MacOS/Windows system files
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Compiled C extensions
+*.so
+
+# Matplotlib cache
+.mplconfig/
+
+# pyenv
+.python-version
+
+# pytest
+.cache/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# Report artifacts
+*.docx
+screenshots/
