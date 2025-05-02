@@ -86,5 +86,3 @@ For any queries or suggestions, reach out via:
 Have fun playing!
 
 ```
-
-
