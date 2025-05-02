@@ -29,6 +29,11 @@ def segment(image, threshold=15):
     cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not cnts:
         return None
+    # Filter by area size (you can tweak these thresholds)
+    hand_candidates = [c for c in cnts if 5000 < cv2.contourArea(c) < 30000]
+    if not hand_candidates:
+        return None
+    # Choose the top-most large contour — likely to be the hand    # hand = sorted(hand_candidates, key=lambda c: cv2.boundingRect(c)[1])[0]
     hand = max(cnts, key=cv2.contourArea)
     return diff, thresh, hand
 
@@ -84,35 +89,24 @@ def overlay_alpha(bg, fg, mask, x, y):
     fg_part = cv2.bitwise_and(fg, fg, mask=mask)
     bg[y:y+h, x:x+w] = cv2.add(bg_part, fg_part)
 
-def show_live_background(cam):
-    global bg_img
-    x1, y1 = 795, 234
-    target_w, target_h = 398, 420
-
+def show_live_background(cam, bg_img, scores):
     while True:
         ret, frame = cam.read()
         frame = cv2.flip(frame, 1)
-
-        # Resize full webcam frame to fit into 398x420 box
-        h, w = frame.shape[:2]
-        scale = min(target_w / w, target_h / h)
-        new_w, new_h = int(w * scale), int(h * scale)
-        resized = cv2.resize(frame, (new_w, new_h))
-
-        canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
-        x_offset = (target_w - new_w) // 2
-        y_offset = (target_h - new_h) // 2
-        canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized
-
-        # Prepare background image with live webcam embedded
+        resized = cv2.resize(frame, (398, 420))  # Fit full frame to BG area
         disp = bg_img.copy()
-        disp[y1:y1+target_h, x1:x1+target_w] = canvas
-
-        cv2.putText(disp, "Press 'S' to Start or 'Q' to Quit", (500, 700),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
+        scale_x = 398 / frame.shape[1]
+        scale_y = 420 / frame.shape[0]
+        scaled_top = int(TOP * scale_y)
+        scaled_bottom = int(BOTTOM * scale_y)
+        scaled_right = int(RIGHT * scale_x)
+        scaled_left = int(LEFT * scale_x)
+        cv2.rectangle(resized, (scaled_right, scaled_top), (scaled_left, scaled_bottom), (0, 255, 0), 2)
+        disp[234:654, 795:1193] = resized
+        cv2.putText(disp, str(scores[1]), (1112, 215), cv2.FONT_HERSHEY_PLAIN, 4, (0, 0, 0), 6)
+        cv2.putText(disp, str(scores[0]), (410, 215), cv2.FONT_HERSHEY_PLAIN, 4, (255, 255, 255), 6)
         cv2.imshow("BG", disp)
-        key = cv2.waitKey(1) & 0xFF
+        key = cv2.waitKey(1)
         if key == ord('s'):
             break
         elif key == ord('q'):
@@ -120,24 +114,40 @@ def show_live_background(cam):
             cv2.destroyAllWindows()
             exit()
 
-def show_countdown(cam):
+def show_countdown(cam, scores):
     global bg_img
     for i in (3, 2, 1):
         ret, frame = cam.read()
         frame = cv2.flip(frame, 1)
-        roi_live = frame[TOP:BOTTOM, RIGHT:LEFT].copy()
+        resized = cv2.resize(frame, (398, 420))  # Fit full frame to BG area
         disp = bg_img.copy()
-        disp[PLAY_Y1:PLAY_Y2, PLAY_X1:PLAY_X2] = roi_live
-        cv2.putText(disp, str(i), (250, 250), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 0, 255), 5)
+        scale_x = 398 / frame.shape[1]
+        scale_y = 420 / frame.shape[0]
+        scaled_top = int(TOP * scale_y)
+        scaled_bottom = int(BOTTOM * scale_y)
+        scaled_right = int(RIGHT * scale_x)
+        scaled_left = int(LEFT * scale_x)
+        cv2.rectangle(resized, (scaled_right, scaled_top), (scaled_left, scaled_bottom), (0, 255, 0), 2)
+        disp[234:654, 795:1193] = resized
+        cv2.putText(disp, str(scores[1]), (1112, 215), cv2.FONT_HERSHEY_PLAIN, 4, (0, 0, 0), 6)
+        cv2.putText(disp, str(scores[0]), (410, 215), cv2.FONT_HERSHEY_PLAIN, 4, (255, 255, 255), 6)
+        cv2.putText(disp, str(i), (600, 445), cv2.FONT_HERSHEY_SIMPLEX, 4, (0, 0, 255), 5)
         cv2.imshow("BG", disp)
         cv2.waitKey(1000)
 
     ret, frame = cam.read()
     frame = cv2.flip(frame, 1)
-    roi_live = frame[TOP:BOTTOM, RIGHT:LEFT].copy()
+    resized = cv2.resize(frame, (398, 420))  # Fit full frame to BG area
     disp = bg_img.copy()
-    disp[PLAY_Y1:PLAY_Y2, PLAY_X1:PLAY_X2] = roi_live
-    cv2.putText(disp, "Shoot!", (180, 250), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
+    scale_x = 398 / frame.shape[1]
+    scale_y = 420 / frame.shape[0]
+    scaled_top = int(TOP * scale_y)
+    scaled_bottom = int(BOTTOM * scale_y)
+    scaled_right = int(RIGHT * scale_x)
+    scaled_left = int(LEFT * scale_x)
+    cv2.rectangle(resized, (scaled_right, scaled_top), (scaled_left, scaled_bottom), (0, 255, 0), 2)
+    disp[234:654, 795:1193] = resized
+    cv2.putText(disp, "Shoot!", (540, 425), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
     cv2.imshow("BG", disp)
     cv2.waitKey(1000)
 
@@ -151,65 +161,45 @@ def main():
     cam = cv2.VideoCapture(0)
     scores = [0,0]
 
-    print("[INFO] Calibrating background...")
+    print("[INFO] Calibrating background on ROI...")
     for _ in range(30):
         ret, frame = cam.read()
-        frame = cv2.flip(frame,1)
+        frame = cv2.flip(frame, 1)
         roi = frame[TOP:BOTTOM, RIGHT:LEFT]
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (7, 7), 0)
         run_avg(gray, 0.5)
 
     print("[INFO] Showing live background... Press 's' to start the game")
-    show_live_background(cam)
+    show_live_background(cam, bg_img, scores)
 
+    # --- Game Loop ---
     while True:
-        show_countdown(cam)
+        # countdown...
+        show_countdown(cam, scores)
 
         ret, frame = cam.read()
-        frame = cv2.flip(frame,1)
-        clone = frame.copy()
+        frame = cv2.flip(frame, 1)
 
-        # Keep the full frame embedded inside bg
+        # draw ROI box on full frame
+        #cv2.rectangle(frame, (RIGHT, TOP), (LEFT, BOTTOM), (0, 255, 0), 2)
+
+        # extract that ROI for processing
         roi = frame[TOP:BOTTOM, RIGHT:LEFT]
         roi_color = roi.copy()
-
-        # Resize full frame into 398x420 area in bg.png
-        h, w = frame.shape[:2]
-        target_w, target_h = 398, 420
-        scale = min(target_w / w, target_h / h)
-        new_w, new_h = int(w * scale), int(h * scale)
-        resized = cv2.resize(frame, (new_w, new_h))
-
-        canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
-        x_offset = (target_w - new_w) // 2
-        y_offset = (target_h - new_h) // 2
-        canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized
-
-        x1, y1 = 795, 234
-        x2, y2 = x1 + target_w, y1 + target_h
-        disp = bg_img.copy()
-        disp[y1:y2, x1:x2] = canvas
-
-        # Draw ROI guide on top of the resized image
-        roi_x1 = int(x_offset + (RIGHT - LEFT) * scale)
-        roi_y1 = int(y_offset + TOP * scale)
-        roi_x2 = int(roi_x1 + (LEFT - RIGHT) * scale)
-        roi_y2 = int(roi_y1 + (BOTTOM - TOP) * scale)
-        cv2.rectangle(disp[y1:y2, x1:x2], (roi_x1, roi_y1), (roi_x2, roi_y2), (0, 255, 0), 2)
-
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
         gray_blur = cv2.GaussianBlur(gray, (7, 7), 0)
 
+        # segment & count fingers
         seg = segment(gray_blur)
-        user = "Unknown"
-        diff_vis = np.zeros_like(gray)
-        circular = np.zeros_like(gray)
         if seg:
             diff, thr, hand = seg
             fingers, circular = count_fingers(thr, hand)
             user = map_gesture(fingers)
-            diff_vis = diff
+            # draw the hand contour inside the ROI
+            cv2.drawContours(roi, [hand], -1, (0, 255, 0), 2)
+        else:
+            user = "Unknown"
 
         ai = random.choice(["Rock","Paper","Scissors"])
         fg, mask = (ai_rock, mr) if ai=="Rock" else (ai_paper, mp) if ai=="Paper" else (ai_scis, ms)
@@ -218,23 +208,15 @@ def main():
         elif result == "You Lose!": scores[0] += 1
 
         disp = bg_img.copy()
-        # Embed full resized webcam frame into background
-        h, w = frame.shape[:2]
-        target_w, target_h = 398, 420
-        scale = min(target_w / w, target_h / h)
-        new_w, new_h = int(w * scale), int(h * scale)
-        resized = cv2.resize(frame, (new_w, new_h))
-
-        canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
-        x_offset = (target_w - new_w) // 2
-        y_offset = (target_h - new_h) // 2
-        canvas[y_offset:y_offset + new_h, x_offset + 0:new_w + x_offset] = resized
-
-        # Coordinates in bg.png
-        x1, y1 = 795, 234
-        x2, y2 = x1 + target_w, y1 + target_h
-        disp[y1:y2, x1:x2] = canvas
-
+        resized = cv2.resize(frame, (398, 420))  # Fit full frame to BG area
+        scale_x = 398 / frame.shape[1]
+        scale_y = 420 / frame.shape[0]
+        scaled_top = int(TOP * scale_y)
+        scaled_bottom = int(BOTTOM * scale_y)
+        scaled_right = int(RIGHT * scale_x)
+        scaled_left = int(LEFT * scale_x)
+        cv2.rectangle(resized, (scaled_right, scaled_top), (scaled_left, scaled_bottom), (0, 255, 0), 2)
+        disp[234:654, 795:1193] = resized
         overlay_alpha(disp, fg, mask, AI_POS[0], AI_POS[1])
         cv2.putText(disp, str(scores[1]), (1112,215), cv2.FONT_HERSHEY_PLAIN, 4, (0,0,0),6)
         cv2.putText(disp, str(scores[0]), (410,215), cv2.FONT_HERSHEY_PLAIN, 4, (255,255,255),6)
@@ -244,7 +226,7 @@ def main():
         gray_bgr = cv2.cvtColor(gray_blur, cv2.COLOR_GRAY2BGR)
         thr_vis = cv2.cvtColor(thr, cv2.COLOR_GRAY2BGR) if seg else gray_bgr.copy()
         circ_bgr = cv2.cvtColor(circular, cv2.COLOR_GRAY2BGR)
-        diff_bgr = cv2.cvtColor(diff_vis, cv2.COLOR_GRAY2BGR)
+        diff_bgr = cv2.cvtColor(diff, cv2.COLOR_GRAY2BGR)
         stack = np.hstack([cv2.resize(roi_color, (200,200)), cv2.resize(gray_bgr, (200,200)),
                            cv2.resize(diff_bgr,(200, 200)),
                            cv2.resize(thr_vis, (200,200)), cv2.resize(circ_bgr, (200,200))])
